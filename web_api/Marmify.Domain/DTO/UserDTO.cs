@@ -98,5 +98,8 @@ namespace Marmify.Domain.DTO
 
         [JsonProperty(PropertyName = "establishmentid", Required = Required.Default)]
         public long EstablishmentId { get; set; }
+
+        [JsonProperty(PropertyName = "role", Required = Required.Always)]
+        public long Role { get; set; }
     }
 }

@@ -8,6 +8,7 @@
     <ApplicationIcon />
     <Win32Resource />
     <LangVersion>8.0</LangVersion>
+    <UserSecretsId>ae2c3998-dc57-4c3c-9ce5-702e52dcf14b</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -38,5 +39,7 @@
     <ProjectReference Include="..\Marmify.Domain\Marmify.Domain.csproj" />
     <ProjectReference Include="..\Marmify.Infraestructure.Data.Context\Marmify.Infraestructure.Data.Context.csproj" />
   </ItemGroup>
+
+  <ProjectExtensions><VisualStudio><UserProperties appsettings_1json__JsonSchema="" /></VisualStudio></ProjectExtensions>
 
 </Project>

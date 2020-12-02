@@ -15,165 +15,171 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Marmify.Web.Api.Controllers
 {
-	[ApiVersion("1")]
-	[Produces("application/json")]
-	[Route("api/v{version:apiVersion}/[controller]")]
-	[ApiController]
-	[Authorize("Bearer")]
-	public class UserController : Controller
-	{
-		private readonly IMapper _mapper;
-		private readonly IUserAppService _userAppService;
-		private readonly UserManager<User> _userManager;
-		private readonly RoleManager<ApplicationRole> _roleManager;
+    [ApiVersion("1")]
+    [Produces("application/json")]
+    [Route("api/v{version:apiVersion}/[controller]")]
+    [ApiController]
+    [Authorize("Bearer")]
+    public class UserController : Controller
+    {
+        private readonly IMapper _mapper;
+        private readonly IUserAppService _userAppService;
+        private readonly UserManager<User> _userManager;
+        private readonly RoleManager<ApplicationRole> _roleManager;
 
-		public UserController(IUserAppService userAppService,
-				UserManager<User> userManager,
-				RoleManager<ApplicationRole> roleManager,
-				IMapper mapper)
-		{
-			_userAppService = userAppService;
-			_roleManager = roleManager;
-			_userManager = userManager;
-			_mapper = mapper;
-		}
+        public UserController(IUserAppService userAppService,
+                UserManager<User> userManager,
+                RoleManager<ApplicationRole> roleManager,
+                IMapper mapper)
+        {
+            _userAppService = userAppService;
+            _roleManager = roleManager;
+            _userManager = userManager;
+            _mapper = mapper;
+        }
 
-		// GET: api/v1/user
-		[HttpGet]
-		[Authorize("Bearer", Roles = "Administrator")]
-		public ActionResult<IEnumerable<UserResponseDTO>> GetAll()
-		{
-			try
-			{
-				return Ok(_mapper.Map<IEnumerable<UserResponseDTO>>(_userAppService.GetAll()));
-			}
-			catch (Exception ex)
-			{
-				return BadRequest(ex);
-			}
-		}
+        // GET: api/v1/user
+        [HttpGet]
+        [Authorize("Bearer", Roles = "Administrator")]
+        public ActionResult<IEnumerable<UserResponseDTO>> GetAll()
+        {
+            try
+            {
+                return Ok(_mapper.Map<IEnumerable<UserResponseDTO>>(_userAppService.GetAll()));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex);
+            }
+        }
 
-		// GET: api/v1/user/1
-		[HttpGet("{id}")]
-		[Authorize("Bearer", Roles = "Administrator, Establishment, User")]
-		public ActionResult<UserResponseDTO> GetById(long id)
-		{
-			try
-			{
-				UserResponseDTO userDTO;
-				CurrentUser currentUser = new CurrentUser(this.User);
+        // GET: api/v1/user/1
+        [HttpGet("{id}")]
+        [Authorize("Bearer", Roles = "Administrator, Establishment, User")]
+        public ActionResult<UserResponseDTO> GetById(long id)
+        {
+            try
+            {
+                UserResponseDTO userDTO;
+                CurrentUser currentUser = new CurrentUser(this.User);
 
-				if (!string.IsNullOrEmpty(currentUser.Role)
-					&& (currentUser.Role.Equals(ConstProfiles.Establishment)
-					|| currentUser.Role.Equals(ConstProfiles.User)))
-					userDTO = _mapper.Map<UserResponseDTO>(_userAppService.GetById(currentUser.Id));
-				else
-					userDTO = _mapper.Map<UserResponseDTO>(_userAppService.GetById(id));
+                if (!string.IsNullOrEmpty(currentUser.Role)
+                    && (currentUser.Role.Equals(ConstProfiles.Establishment)
+                    || currentUser.Role.Equals(ConstProfiles.User))
+                    && currentUser.Id == id)
+                    userDTO = _mapper.Map<UserResponseDTO>(_userAppService.GetById(currentUser.Id));
+                else
+                    userDTO = _mapper.Map<UserResponseDTO>(_userAppService.GetById(id));
 
-				if (userDTO == null)
-					return NotFound();
+                if (userDTO == null)
+                    return NotFound();
 
-				return Ok(userDTO);
-			}
-			catch (Exception ex)
-			{
-				return BadRequest(ex);
-			}
-		}
+                return Ok(userDTO);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex);
+            }
+        }
 
-		// POST: api/v1/user
-		[HttpPost]
-		[AllowAnonymous]
-		public async Task<ActionResult> Create([FromBody] UserResquestDTO userDTO)
-		{
-			try
-			{
-				if (this.User.Claims.Any())
-				{
-					CurrentUser currentUser = new CurrentUser(this.User);
+        // POST: api/v1/user
+        [HttpPost]
+        [AllowAnonymous]
+        public async Task<ActionResult> Create([FromBody] UserResquestDTO userDTO)
+        {
+            try
+            {
+                if (this.User.Claims.Any())
+                {
+                    CurrentUser currentUser = new CurrentUser(this.User);
 
-					if (currentUser.Role.Equals(ConstProfiles.Administrator)
-							&& userDTO.Role != (long)EnumProfiles.Establishment)
-					{
-						return UnprocessableEntity(ModelState);
-					}
-				}
-				else if (!ModelState.IsValid || userDTO.Role != (long)EnumProfiles.User)
-				{
-					return UnprocessableEntity(ModelState);
-				}
+                    if (currentUser.Role.Equals(ConstProfiles.Administrator)
+                            && userDTO.Role != (long)EnumProfiles.Establishment)
+                    {
+                        return UnprocessableEntity(ModelState);
+                    }
+                }
+                else if (!ModelState.IsValid || userDTO.Role != (long)EnumProfiles.User)
+                {
+                    return UnprocessableEntity(ModelState);
+                }
 
-				User user = _mapper.Map<User>(userDTO);
+                User user = _mapper.Map<User>(userDTO);
 
-				user.EmailConfirmed = true;
+                user.EmailConfirmed = true;
 
-				var result = await _userManager.CreateAsync(user, userDTO.Password);
+                var result = await _userManager.CreateAsync(user, userDTO.Password);
 
-				var role = await _roleManager.FindByIdAsync(userDTO.Role.ToString());
+                var role = await _roleManager.FindByIdAsync(userDTO.Role.ToString());
 
-				if (!result.Succeeded || role == null)
-					return BadRequest(result.Errors);
+                if (!result.Succeeded || role == null)
+                    return BadRequest(result.Errors);
 
-				_userManager.AddToRoleAsync(user, role.Name).Wait();
+                _userManager.AddToRoleAsync(user, role.Name).Wait();
 
-				return Created("/api/v1/login", HttpStatusCode.Created);
-			}
-			catch (Exception ex)
-			{
-				return BadRequest(ex);
-			}
-		}
+                return Created("/api/v1/login", HttpStatusCode.Created);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex);
+            }
+        }
 
-		// PUT: api/v1/user
-		[HttpPut]
-		[Authorize("Bearer", Roles = "Administrator, Establishment, User")]
-		public async Task<ActionResult> Edit([FromBody] UserUpdateDTO userDTO)
-		{
-			try
-			{
-				if (!ModelState.IsValid)
-					return UnprocessableEntity(ModelState);
+        // PUT: api/v1/user
+        [HttpPut]
+        [Authorize("Bearer", Roles = "Administrator, Establishment, User")]
+        public async Task<ActionResult> Edit([FromBody] UserUpdateDTO userDTO)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return UnprocessableEntity(ModelState);
 
-				User user = await _userManager.FindByIdAsync(userDTO.Id.ToString());
+                User user = await _userManager.FindByIdAsync(userDTO.Id.ToString());
 
-				CurrentUser currentUser = new CurrentUser(this.User);
+                CurrentUser currentUser = new CurrentUser(this.User);
 
-				if (user == null || currentUser.Id != user.Id)
-					return NotFound();
+                if (user == null || currentUser.Id != user.Id)
+                    return NotFound();
 
-				user = _userAppService.UpdateEntity(user, userDTO);
+                user = _userAppService.UpdateEntity(currentUser, user, userDTO);
 
-				await _userManager.UpdateAsync(user);
+                if (user != null)
+                {
+                    await _userManager.UpdateAsync(user);
 
-				return Ok(new ObjectResult(userDTO));
-			}
-			catch (Exception)
-			{
+                return Ok(new ObjectResult(userDTO));
+                }
 
-				throw;
-			}
-		}
+                return UnprocessableEntity(user);
+            }
+            catch (Exception)
+            {
 
-		// DELETE: api/v1/user/1
-		[HttpDelete("{id}")]
-		[Authorize("Bearer", Roles = "Administrator")]
-		public ActionResult Delete(long id)
-		{
-			try
-			{
-				User user = _userAppService.GetById(id);
+                throw;
+            }
+        }
 
-				if (user == null)
-					return NotFound();
+        // DELETE: api/v1/user/1
+        [HttpDelete("{id}")]
+        [Authorize("Bearer", Roles = "Administrator")]
+        public ActionResult Delete(long id)
+        {
+            try
+            {
+                User user = _userAppService.GetById(id);
 
-				_userAppService.RemoveEntity(user);
+                if (user == null)
+                    return NotFound();
 
-				return NoContent();
-			}
-			catch (Exception ex)
-			{
-				return BadRequest(ex.InnerException);
-			}
-		}
-	}
+                _userAppService.RemoveEntity(user);
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.InnerException);
+            }
+        }
+    }
 }
